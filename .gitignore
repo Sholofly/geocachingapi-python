@@ -15,6 +15,6 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-/tests/*
 logs/
 __pycache__/
+.pytest_cache/
