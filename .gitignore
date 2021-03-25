@@ -18,3 +18,4 @@ var/
 logs/
 __pycache__/
 .pytest_cache/
+token.py
