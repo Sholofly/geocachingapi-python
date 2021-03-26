@@ -16,7 +16,7 @@ class GeocachingUser:
     def update_from_dict(self, data: Dict[str, Any]) -> None:
         if  "username" in data:
             self.username = data["username"]
-        if  "reference" in data:
+        if  "referenceCode" in data:
             self.reference_code = data["referenceCode"]
         if  "findCount" in data:
             self.find_count = data["findCount"]
