@@ -35,10 +35,10 @@ class GeocachingApi:
     def __init__(
         self,
         *,
+        token: str,
         request_timeout: int = 8,
         session: Optional[ClientSession] = None,
         token_refresh_method: Optional[Callable[[], Awaitable[str]]] = None,
-        token: str,
     ) -> None:
         """Initialize connection with the Geocaching API."""
         self._session = session
@@ -121,7 +121,16 @@ class GeocachingApi:
     async def _update_user(self, data: Dict[str, Any] = None) -> None:
         assert self._status
         if data is None:
-            data = await self._request("GET", f"/{GEOCACHING_API_VERSION}/users/me?fields=username,referenceCode")
+            fields = ",".join([
+                "username",
+                "referenceCode",
+                "findCount",
+                "hideCount",
+                "favoritePoints",
+                "souvenirCount",
+                "awardedFavoritePoints"
+            ])
+            data = await self._request("GET", f"/{GEOCACHING_API_VERSION}/users/me?fields={fields}")
         self._status.user.update_from_dict(data)
     
     async def close(self) -> None:
