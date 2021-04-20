@@ -7,7 +7,8 @@ import logging
 import socket
 import async_timeout
 import backoff
-from logging import Logger
+import logging
+
 from yarl import URL
 from aiohttp import ClientResponse, ClientSession, ClientError
 
@@ -31,6 +32,8 @@ from .models import (
     GeocachingSettings
 )
 
+_LOGGER = logging.getLogger(__name__)
+
 class GeocachingApi:
     """ Main class to control the Geocaching API"""
     _close_session: bool = False
@@ -53,7 +56,6 @@ class GeocachingApi:
         self.request_timeout = request_timeout
         self.token = token
         self.token_refresh_method = token_refresh_method
-        self._logger = logging.getLogger(__name__)
 
     @backoff.on_exception(backoff.expo, GeocachingApiConnectionError, max_tries=3, logger=None)
     @backoff.on_exception(
@@ -63,14 +65,14 @@ class GeocachingApi:
         """Make a request."""
         if self.token_refresh_method is not None:
             self.token = await self.token_refresh_method()
-        self._logger.debug(f'Received API request with token {self.token}')
+        _LOGGER.debug(f'Received API request with token {self.token}')
         url = URL.build(
             scheme=GEOCACHING_API_SCHEME,
             host=GEOCACHING_API_HOST,
             port=GEOCACHING_API_PORT,
             path=GEOCACHING_API_BASE_PATH,
         ).join(URL(uri))
-        self._logger.debug(f'URL: {url}')
+        _LOGGER.debug(f'URL: {url}')
         headers = kwargs.get("headers")
 
         if headers is None:
@@ -122,10 +124,10 @@ class GeocachingApi:
         
         if "application/json" in content_type:
             result =  await response.json()
-            self._logger.debug(f'response: {str(result)}')
+            _LOGGER.debug(f'response: {str(result)}')
             return result
         result =  await response.text()
-        self._logger.debug(f'response: {str(result)}')
+        _LOGGER.debug(f'response: {str(result)}')
         return result
 
     async def update(self) -> GeocachingStatus:
