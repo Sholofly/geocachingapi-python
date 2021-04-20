@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import socket
 import async_timeout
 import backoff
+from logging import Logger
 from yarl import URL
 from aiohttp import ClientResponse, ClientSession, ClientError
 
@@ -26,25 +28,32 @@ from .exceptions import (
 
 from .models import (
     GeocachingStatus,
+    GeocachingSettings
 )
 
 class GeocachingApi:
-
+    """ Main class to control the Geocaching API"""
     _close_session: bool = False
-    _status: GeocachingStatus = GeocachingStatus()
+    _status: GeocachingStatus = None
+    _settings: GeocachingSettings = None
     def __init__(
         self,
         *,
         token: str,
+        settings: GeocachingSettings = None,
         request_timeout: int = 8,
         session: Optional[ClientSession] = None,
-        token_refresh_method: Optional[Callable[[], Awaitable[str]]] = None,
+        token_refresh_method: Optional[Callable[[], Awaitable[str]]] = None
+       
     ) -> None:
         """Initialize connection with the Geocaching API."""
+        self._status = GeocachingStatus()
+        self._settings = settings or GeocachingSettings(False)
         self._session = session
         self.request_timeout = request_timeout
         self.token = token
         self.token_refresh_method = token_refresh_method
+        self._logger = logging.getLogger(__name__)
 
     @backoff.on_exception(backoff.expo, GeocachingApiConnectionError, max_tries=3, logger=None)
     @backoff.on_exception(
@@ -54,13 +63,14 @@ class GeocachingApi:
         """Make a request."""
         if self.token_refresh_method is not None:
             self.token = await self.token_refresh_method()
-        
+        self._logger.debug(f'Received API request with token {self.token}')
         url = URL.build(
             scheme=GEOCACHING_API_SCHEME,
             host=GEOCACHING_API_HOST,
             port=GEOCACHING_API_PORT,
             path=GEOCACHING_API_BASE_PATH,
         ).join(URL(uri))
+        self._logger.debug(f'URL: {url}')
         headers = kwargs.get("headers")
 
         if headers is None:
@@ -109,13 +119,19 @@ class GeocachingApi:
         # Handle empty response
         if response.status == 204:
             return
-
+        
         if "application/json" in content_type:
-            return await response.json()
-        return await response.text()
+            result =  await response.json()
+            self._logger.debug(f'response: {str(result)}')
+            return result
+        result =  await response.text()
+        self._logger.debug(f'response: {str(result)}')
+        return result
 
     async def update(self) -> GeocachingStatus:
         await self._update_user(None)
+        if self._settings.fetch_trackables:
+            await self._update_trackables()
         return self._status
         
     async def _update_user(self, data: Dict[str, Any] = None) -> None:
@@ -128,11 +144,27 @@ class GeocachingApi:
                 "hideCount",
                 "favoritePoints",
                 "souvenirCount",
-                "awardedFavoritePoints"
+                "awardedFavoritePoints",
+                "membershipLevelId"
             ])
             data = await self._request("GET", f"/{GEOCACHING_API_VERSION}/users/me?fields={fields}")
-        self._status.user.update_from_dict(data)
+        self._status.update_user_from_dict(data)
     
+    async def _update_trackables(self, data: Dict[str, Any] = None) -> None:
+        assert self._status
+        if data is None:
+            fields = ",".join([
+                "referenceCode",
+                "name",
+                "holder",
+                "trackingNumber",
+                "kilometersTraveled",
+                "currentGeocacheCode",
+                "currentGeocacheName"
+            ])
+            data = await self._request("GET", f"/{GEOCACHING_API_VERSION}/trackables?fields={fields}&type=3")
+        self._status.update_trackables_from_dict(data)
+
     async def close(self) -> None:
         """Close open client session."""
         if self._session and self._close_session:
