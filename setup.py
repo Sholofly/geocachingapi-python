@@ -6,12 +6,6 @@ import sys
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-def get_version():
-    """Get current version from code."""
-    regex = r"__version__\s=\s\"(?P<version>[\d\.]+?)\""
-    path = ("geocachingapi", "__version__.py")
-    return re.search(regex, read(*path)).group("version")
-
 def read(*parts):
     """Read file."""
     filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), *parts)
@@ -21,7 +15,6 @@ def read(*parts):
 
 setuptools.setup(
     name="geocachingapi",
-    version=get_version(),
     author="Rudolf Offereins",
     author_email="r.offereins@gmail.com",
     description="Python client for controlling the Geocaching API",
@@ -47,4 +40,6 @@ setuptools.setup(
     python_requires='>=3.8',
     zip_safe=False,
     include_package_data=True,
+    use_scm_version=True,
+    setup_requires=['setuptools_scm']
 )
