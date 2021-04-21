@@ -87,3 +87,4 @@ class GeocachingStatus:
             if not reference_code in self.trackables.keys():
                 self.trackables[reference_code] = GeocachingTrackable()
             self.trackables[reference_code].update_from_dict(trackable)
+            

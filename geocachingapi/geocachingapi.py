@@ -7,7 +7,6 @@ import logging
 import socket
 import async_timeout
 import backoff
-import logging
 
 from yarl import URL
 from aiohttp import ClientResponse, ClientSession, ClientError
@@ -179,3 +178,4 @@ class GeocachingApi:
     async def __aexit__(self, *exc_info) -> None:
         """Async exit."""
         await self.close()
+        
