@@ -14,3 +14,4 @@ class GeocachingApiConnectionTimeoutError(GeocachingApiConnectionError):
 
 class GeocachingApiRateLimitError(GeocachingApiConnectionError):
     """GeocachingApi Rate Limit exception."""
+    
