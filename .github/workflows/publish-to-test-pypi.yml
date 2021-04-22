@@ -2,18 +2,18 @@ name: Publish beta Python 🐍 distributions 📦 to TestPyPI
 on:
   push:
     tags:    
-    - 'v*.*.*b*'
+    - '*.*.*b*'
 
 jobs:
   build-n-publish:
     name: Publish beta Python 🐍 distributions 📦 to TestPyPI
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@master
-    - name: Set up Python 3.7
+    - name: Set up Python 3.8
       uses: actions/setup-python@v1
       with:
-        python-version: 3.7
+        python-version: 3.8
     - name: Install pypa/build
       run: >-
         python -m
