@@ -56,22 +56,23 @@ class GeocachingApi:
         self.token = token
         self.token_refresh_method = token_refresh_method
 
-    @backoff.on_exception(backoff.expo, GeocachingApiConnectionError, max_tries=3, logger=None)
+    @backoff.on_exception(backoff.expo, GeocachingApiConnectionError, max_tries=3, logger=_LOGGER)
     @backoff.on_exception(
-        backoff.expo, GeocachingApiRateLimitError, base=60, max_tries=6, logger=None
+        backoff.expo, GeocachingApiRateLimitError, base=60, max_tries=6, logger=_LOGGER
     )
     async def _request(self, method, uri, **kwargs) -> ClientResponse:
         """Make a request."""
         if self.token_refresh_method is not None:
             self.token = await self.token_refresh_method()
-        _LOGGER.debug(f'Received API request with token {self.token}')
+            _LOGGER.debug(f'Token refresh method called.')
+        
         url = URL.build(
             scheme=GEOCACHING_API_SCHEME,
             host=GEOCACHING_API_HOST,
             port=GEOCACHING_API_PORT,
             path=GEOCACHING_API_BASE_PATH,
         ).join(URL(uri))
-        _LOGGER.debug(f'URL: {url}')
+        _LOGGER.debug(f'Executing {method} API request to {url}.')
         headers = kwargs.get("headers")
 
         if headers is None:
@@ -80,9 +81,11 @@ class GeocachingApi:
             headers = dict(headers)
 
         headers["Authorization"] = f"Bearer {self.token}"
-
+        _LOGGER.debug(f'With headers:')
+        _LOGGER.debug(f'{str(headers)}')
         if self._session is None:
             self._session = ClientSession()
+            _LOGGER.debug(f'New session created.')
             self._close_session = True
 
         try:
@@ -119,20 +122,24 @@ class GeocachingApi:
         
         # Handle empty response
         if response.status == 204:
+            _LOGGER.warning(f'Request to {url} resulted in status 204. Your dataset could be out of date.')
             return
         
         if "application/json" in content_type:
             result =  await response.json()
-            _LOGGER.debug(f'response: {str(result)}')
+            _LOGGER.debug(f'Response:')
+            _LOGGER.debug(f'{str(result)}')
             return result
         result =  await response.text()
-        _LOGGER.debug(f'response: {str(result)}')
+        _LOGGER.debug(f'Response:')
+        _LOGGER.debug(f'{str(result)}')
         return result
 
     async def update(self) -> GeocachingStatus:
         await self._update_user(None)
         if self._settings.fetch_trackables:
             await self._update_trackables()
+        _LOGGER.info(f'Status updated.')
         return self._status
         
     async def _update_user(self, data: Dict[str, Any] = None) -> None:
@@ -150,6 +157,7 @@ class GeocachingApi:
             ])
             data = await self._request("GET", f"/{GEOCACHING_API_VERSION}/users/me?fields={fields}")
         self._status.update_user_from_dict(data)
+        _LOGGER.debug(f'User updated.')
     
     async def _update_trackables(self, data: Dict[str, Any] = None) -> None:
         assert self._status
@@ -165,11 +173,13 @@ class GeocachingApi:
             ])
             data = await self._request("GET", f"/{GEOCACHING_API_VERSION}/trackables?fields={fields}&type=3")
         self._status.update_trackables_from_dict(data)
+        _LOGGER.debug(f'User updated.')
 
     async def close(self) -> None:
         """Close open client session."""
         if self._session and self._close_session:
             await self._session.close()
+            _LOGGER.debug(f'Session closed.')
     
     async def __aenter__(self) -> GeocachingApi:
         """Async enter."""
