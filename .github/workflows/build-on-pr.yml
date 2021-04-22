@@ -1,11 +1,12 @@
-name: Publish Python 🐍 distribution 📦 to Pypi
+name: Build Python 🐍 distribution 📦
 on:
-  release:
-    types: [published]
+  pull_request:
+    branches:
+      - develop
 
 jobs:
-  build-n-publish:
-    name: Publish Python 🐍 distribution 📦 to Pypi
+  build:
+    name: Build Python 🐍 distribution 📦
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@master
@@ -26,7 +27,3 @@ jobs:
         --sdist
         --wheel
         --outdir dist/
-    - name: Publish distribution 📦 to PyPI
-      uses: pypa/gh-action-pypi-publish@master
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
