@@ -1,6 +1,6 @@
 name: Publish Python 🐍 distribution 📦 to Pypi
 on:
-  pull-request:
+  pull_request:
     branches:
       - develop
 
