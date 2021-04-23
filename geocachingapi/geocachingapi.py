@@ -173,7 +173,7 @@ class GeocachingApi:
             ])
             data = await self._request("GET", f"/{GEOCACHING_API_VERSION}/trackables?fields={fields}&type=3")
         self._status.update_trackables_from_dict(data)
-        _LOGGER.debug(f'User updated.')
+        _LOGGER.debug(f'Trackables updated.')
 
     async def close(self) -> None:
         """Close open client session."""
