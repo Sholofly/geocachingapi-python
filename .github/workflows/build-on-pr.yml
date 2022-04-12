@@ -2,7 +2,7 @@ name: Build Python 🐍 distribution 📦
 on:
   pull_request:
     branches:
-      - develop
+      - dev
 
 jobs:
   build:
