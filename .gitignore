@@ -18,5 +18,5 @@ var/
 logs/
 __pycache__/
 .pytest_cache/
-token.py
+my_token.py
 .pypirc

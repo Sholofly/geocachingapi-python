@@ -12,13 +12,7 @@ from yarl import URL
 from aiohttp import ClientResponse, ClientSession, ClientError
 
 from typing import Any, Awaitable, Callable, Dict, List, Optional
-from .const import (
-    GEOCACHING_API_BASE_PATH,
-    GEOCACHING_API_HOST,
-    GEOCACHING_API_PORT,
-    GEOCACHING_API_SCHEME,
-    GEOCACHING_API_VERSION,
-)
+from .const import ENVIRONMENT_SETTINGS
 from .exceptions import (
     GeocachingApiConnectionError,
     GeocachingApiConnectionTimeoutError,
@@ -28,7 +22,9 @@ from .exceptions import (
 
 from .models import (
     GeocachingStatus,
-    GeocachingSettings
+    GeocachingSettings,
+    GeocachingApiEnvironment,
+    GeocachingApiEnvironmentSettings
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,9 +34,11 @@ class GeocachingApi:
     _close_session: bool = False
     _status: GeocachingStatus = None
     _settings: GeocachingSettings = None
+    _environment_settings: GeocachingApiEnvironmentSettings = None
     def __init__(
         self,
         *,
+        environment: GeocachingApiEnvironment,
         token: str,
         settings: GeocachingSettings = None,
         request_timeout: int = 8,
@@ -49,6 +47,7 @@ class GeocachingApi:
        
     ) -> None:
         """Initialize connection with the Geocaching API."""
+        self._environment_settings = ENVIRONMENT_SETTINGS[environment]
         self._status = GeocachingStatus()
         self._settings = settings or GeocachingSettings(False)
         self._session = session
@@ -67,11 +66,12 @@ class GeocachingApi:
             _LOGGER.debug(f'Token refresh method called.')
         
         url = URL.build(
-            scheme=GEOCACHING_API_SCHEME,
-            host=GEOCACHING_API_HOST,
-            port=GEOCACHING_API_PORT,
-            path=GEOCACHING_API_BASE_PATH,
-        ).join(URL(uri))
+            scheme=self._environment_settings["api_scheme"],
+            host=self._environment_settings["api_host"],
+            port=self._environment_settings["api_port"],
+            path=self._environment_settings["api_base_bath"],
+        ) 
+        url = str(url) + uri
         _LOGGER.debug(f'Executing {method} API request to {url}.')
         headers = kwargs.get("headers")
 
@@ -155,7 +155,7 @@ class GeocachingApi:
                 "awardedFavoritePoints",
                 "membershipLevelId"
             ])
-            data = await self._request("GET", f"/{GEOCACHING_API_VERSION}/users/me?fields={fields}")
+            data = await self._request("GET", f"/users/me?fields={fields}")
         self._status.update_user_from_dict(data)
         _LOGGER.debug(f'User updated.')
     

@@ -1,27 +1,19 @@
 """Test for Geocaching Api integration."""
-from geocachingapi import GeocachingApi, GeocachingStatus, GeocachingSettings
-#For adding your token add a file call token.py to current folder and add TOKEN = "<your token here>"
-from .token import TOKEN
 import asyncio
-import pytest
-
-# @pytest.mark.asyncio
 import logging
+from geocachingapi import GeocachingApi, GeocachingStatus
+from geocachingapi.models import GeocachingApiEnvironment
+from my_token import TOKEN
 logging.basicConfig(level=logging.DEBUG)
-
 mylogger = logging.getLogger()
 
-@pytest.mark.asyncio
 async def test():
+    """Function to test GeocachingAPI  integration"""
     status:GeocachingStatus = None
-    api = GeocachingApi(token=TOKEN)
+    api = GeocachingApi(token=TOKEN, environment=GeocachingApiEnvironment.Staging)
     status = await api.update()
     print(status.user.reference_code)
-    assert(status.user.reference_code is not None)
-    assert(status.user.find_count is not None)
     await api.close()
-    assert(False)
-
-
-
-
+loop = asyncio.get_event_loop()
+loop.run_until_complete(test())
+loop.close()

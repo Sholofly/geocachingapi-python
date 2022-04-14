@@ -1,9 +1,21 @@
 """Geocaching Api Constants."""
-GEOCACHING_API_SCHEME = "https"
-GEOCACHING_API_HOST = "staging.api.groundspeak.com"
-GEOCACHING_API_PORT = 443
-GEOCACHING_API_BASE_PATH = "/"
-GEOCACHING_API_VERSION = "v1"
+from .models import GeocachingApiEnvironment, GeocachingApiEnvironmentSettings
+
+ENVIRONMENT_SETTINGS = {
+    GeocachingApiEnvironment.Staging : GeocachingApiEnvironmentSettings(   
+            api_scheme= "https",
+            api_host= "staging.api.groundspeak.com",
+            api_port = 443,
+            api_base_bath="/v1",
+            ),
+            
+    GeocachingApiEnvironment.Production : GeocachingApiEnvironmentSettings(   
+            api_scheme= "https",
+            api_host= "api.groundspeak.com",
+            api_port = 443,
+            api_base_bath="/v1",
+            )
+}
 
 MEMBERSHIP_LEVELS = {
     0: "Unknown",

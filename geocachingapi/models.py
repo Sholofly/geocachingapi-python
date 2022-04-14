@@ -1,20 +1,31 @@
 from __future__ import annotations
-from typing import Any, Dict, Optional
+from enum import Enum
+from typing import Any, Dict, Optional, TypedDict
 
 from dataclasses import dataclass
 from datetime import datetime
 from .utils import try_get_from_dict
 
+class GeocachingApiEnvironmentSettings(TypedDict):
+    """Class to represent API environment settings"""
+    api_scheme:str
+    api_host:str
+    api_port: int
+    api_base_bath:str
+
+class GeocachingApiEnvironment(Enum):
+    """Enum to represent API environment"""
+    Staging = 1,
+    Production = 2,
 
 class GeocachingSettings:
     """Class to hold the Geocaching Api settings"""
-    fetch_trackables: bool = False
-    def __init__(self, fetch_trackables:bool = False) -> None:
+    fetch_trackables: bool
+    environment: GeocachingApiEnvironment
+
+    def __init__(self, fetch_trackables:bool = False, environment:GeocachingApiEnvironment = GeocachingApiEnvironment.Production ) -> None:
         """Initialize settings"""
         self.fetch_trackables = fetch_trackables
-
-
-
 
 @dataclass
 class GeocachingUser:
