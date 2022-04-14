@@ -1,24 +1,19 @@
 """Test for Geocaching Api integration."""
-from geocachingapi import GeocachingApi, GeocachingStatus
 import asyncio
 import logging
+from geocachingapi import GeocachingApi, GeocachingStatus
 from geocachingapi.models import GeocachingApiEnvironment
-logging.basicConfig(level=logging.DEBUG)
 from my_token import TOKEN
+logging.basicConfig(level=logging.DEBUG)
 mylogger = logging.getLogger()
 
 async def test():
+    """Function to test GeocachingAPI  integration"""
     status:GeocachingStatus = None
     api = GeocachingApi(token=TOKEN, environment=GeocachingApiEnvironment.Staging)
     status = await api.update()
     print(status.user.reference_code)
-    assert(status.user.reference_code is not None)
-    assert(status.user.find_count is not None)
     await api.close()
-    assert(False)
-
-
 loop = asyncio.get_event_loop()
 loop.run_until_complete(test())
 loop.close()
-
