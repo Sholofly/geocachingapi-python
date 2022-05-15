@@ -49,18 +49,46 @@ class GeocachingUser:
         self.awarded_favorite_points = try_get_from_dict(data, "awardedFavoritePoints", self.awarded_favorite_points)
 
 @dataclass
+class GeocachingCoordinate:
+    """Class to hold a Geocaching coordinate"""
+    latitude: Optional[str] = None
+    longitude: Optional[str] = None
+
+    def __init__(self, *, data: Dict[str, Any]) -> GeocachingCoordinate:
+        """Constructor for Geocaching coordinates"""
+        self.latitude = try_get_from_dict(data, "latitude", None)
+        self.longitude = try_get_from_dict(data, "longitude", None)
+
+@dataclass
+class GeocachingTrackableJourney:
+    """Class to hold Geocaching trackable journey information"""
+    coordinates: GeocachingCoordinate = None
+    logged_date: Optional[datetime] = None
+
+    def __init__(self, *, data: Dict[str, Any]) -> GeocachingTrackableJourney:
+        """Constructor for Geocaching trackable journey"""
+        if "coordinates" in data:
+            self.coordinates = GeocachingCoordinate(data=data["coordinates"])
+        else:
+            self.coordinates = None
+        self.logged_date = try_get_from_dict(data, "loggedDate", self.logged_date)
+
+@dataclass
 class GeocachingTrackable:
     """Class to hold the Geocaching trackable information"""
     reference_code: Optional[str] = None
     name: Optional[str] = None
     holder: GeocachingUser = None
     tracking_number: Optional[str] = None
-    kilometers_traveled: Optional[datetime] = None
+    kilometers_traveled: Optional[str] = None
+    miles_traveled: Optional[str] = None
     current_geocache_code: Optional[str] = None
     current_geocache_name: Optional[str] = None
-
+    latest_journey: GeocachingTrackableJourney = None
+    is_missing: bool = False
+    
     def update_from_dict(self, data: Dict[str, Any]) -> None:
-        """Update trackble from the API"""
+        """Update trackable from the API"""
         self.reference_code = try_get_from_dict(data, "referenceCode", self.reference_code)
         self.name = try_get_from_dict(data, "name", self.name)
         if data["holder"] is not None:
@@ -72,8 +100,10 @@ class GeocachingTrackable:
 
         self.tracking_number = try_get_from_dict(data, "trackingNumber", self.tracking_number)
         self.kilometers_traveled = try_get_from_dict(data, "kilometersTraveled", self.kilometers_traveled)
+        self.miles_traveled = try_get_from_dict(data, "milesTraveled", self.miles_traveled)
         self.current_geocache_code = try_get_from_dict(data, "currectGeocacheCode", self.current_geocache_code)
         self.current_geocache_name = try_get_from_dict(data, "currentGeocacheName", self.current_geocache_name)
+        self.is_missing = try_get_from_dict(data, "isMissing", self.is_missing)
 
 class GeocachingStatus:
     """Class to hold all account status information"""

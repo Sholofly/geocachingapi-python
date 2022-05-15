@@ -24,7 +24,8 @@ from .models import (
     GeocachingStatus,
     GeocachingSettings,
     GeocachingApiEnvironment,
-    GeocachingApiEnvironmentSettings
+    GeocachingApiEnvironmentSettings,
+    GeocachingTrackableJourney
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -168,13 +169,24 @@ class GeocachingApi:
                 "holder",
                 "trackingNumber",
                 "kilometersTraveled",
+                "milesTraveled",
                 "currentGeocacheCode",
-                "currentGeocacheName"
+                "currentGeocacheName",
+                "isMissing"
             ])
             data = await self._request("GET", f"/trackables?fields={fields}&type=3")
         self._status.update_trackables_from_dict(data)
+        if len(self._status.trackables) > 0:
+            for trackable in self._status.trackables.values():
+                latest_journey_data = await self._request("GET",f"/trackables/{trackable.reference_code}/journeys?sort=loggedDate-&take=1")
+                if len(latest_journey_data) == 1:
+                    trackable.latest_journey = GeocachingTrackableJourney(data=latest_journey_data[0])
+                else:
+                    trackable.latest_journey = None
+
         _LOGGER.debug(f'Trackables updated.')
 
+    
     async def close(self) -> None:
         """Close open client session."""
         if self._session and self._close_session:
