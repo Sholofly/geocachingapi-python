@@ -103,7 +103,7 @@ class GeocachingTrackable:
         self.miles_traveled = try_get_from_dict(data, "milesTraveled", self.miles_traveled)
         self.current_geocache_code = try_get_from_dict(data, "currectGeocacheCode", self.current_geocache_code)
         self.current_geocache_name = try_get_from_dict(data, "currentGeocacheName", self.current_geocache_name)
-        self.is_missing = try_get_from_dict(data, "isMissing", self.current_geocache_name)
+        self.is_missing = try_get_from_dict(data, "isMissing", self.is_missing)
 
 class GeocachingStatus:
     """Class to hold all account status information"""
