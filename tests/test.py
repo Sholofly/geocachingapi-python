@@ -10,13 +10,14 @@ mylogger = logging.getLogger()
 async def test():
     """Function to test GeocachingAPI integration"""
     status:GeocachingStatus = None
-    api = GeocachingApi(token=TOKEN, environment=GeocachingApiEnvironment.Staging, settings = GeocachingSettings(fetch_trackables=True))
+    api = GeocachingApi(token=TOKEN, environment=GeocachingApiEnvironment.Staging, settings = GeocachingSettings(trackables=['TB87DTF']))
     status = await api.update()
     print(status.user.reference_code)
     for trackable in status.trackables.values():
         print('----------------------')
         print(f'Trackable code: {trackable.reference_code}')
         print(f'Trackable name: {trackable.name}')
+        print(f'Trackable type: {trackable.trackable_type}')
         print(f'Kilometers traveled: {trackable.kilometers_traveled}km')
         print(f'Miles traveled: {trackable.miles_traveled}mi')
         print(f'Missing?: {trackable.is_missing}')

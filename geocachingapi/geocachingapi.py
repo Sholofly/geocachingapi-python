@@ -138,7 +138,7 @@ class GeocachingApi:
 
     async def update(self) -> GeocachingStatus:
         await self._update_user(None)
-        if self._settings.fetch_trackables:
+        if len(self._settings.trackable_codes) > 0:
             await self._update_trackables()
         _LOGGER.info(f'Status updated.')
         return self._status
@@ -172,9 +172,11 @@ class GeocachingApi:
                 "milesTraveled",
                 "currentGeocacheCode",
                 "currentGeocacheName",
-                "isMissing"
+                "isMissing",
+                "type"
             ])
-            data = await self._request("GET", f"/trackables?fields={fields}&type=3")
+            trackable_parameters = ",".join(self._settings.trackable_codes)
+            data = await self._request("GET", f"/trackables?referenceCodes={trackable_parameters}&fields={fields}")
         self._status.update_trackables_from_dict(data)
         if len(self._status.trackables) > 0:
             for trackable in self._status.trackables.values():
