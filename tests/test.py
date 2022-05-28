@@ -9,8 +9,17 @@ mylogger = logging.getLogger()
 
 async def test():
     """Function to test GeocachingAPI integration"""
-    status:GeocachingStatus = None
-    api = GeocachingApi(token=TOKEN, environment=GeocachingApiEnvironment.Staging, settings = GeocachingSettings(trackables=['TB87DTF']))
+    gc_settings = GeocachingSettings()
+    api = GeocachingApi(token=TOKEN, environment=GeocachingApiEnvironment.Staging, settings=gc_settings)
+    await _update(api)
+    gc_settings.set_trackables(['TB87DTF'])
+    await api.update_settings(gc_settings)
+    await _update(api)
+    await api.close()
+
+
+async def _update(api:GeocachingApi):
+    """Update and print"""
     status = await api.update()
     print(status.user.reference_code)
     for trackable in status.trackables.values():
@@ -25,7 +34,7 @@ async def test():
             print(f'last log: {trackable.latest_journey.logged_date}')
             print(f'latitude: {trackable.latest_journey.coordinates.latitude}')
             print(f'longitude: {trackable.latest_journey.coordinates.longitude}')
-    await api.close()
+
 loop = asyncio.get_event_loop()
 loop.run_until_complete(test())
 loop.close()

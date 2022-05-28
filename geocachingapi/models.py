@@ -27,6 +27,9 @@ class GeocachingSettings:
     def __init__(self, environment:GeocachingApiEnvironment = GeocachingApiEnvironment.Production, trackables:array(str) = [] ) -> None:
         """Initialize settings"""
         self.trackable_codes = trackables
+    
+    def set_trackables(self, trackables:array(str)):
+        self.trackable_codes = trackables
 
 @dataclass
 class GeocachingUser:

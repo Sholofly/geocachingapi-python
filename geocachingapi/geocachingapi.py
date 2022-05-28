@@ -188,7 +188,10 @@ class GeocachingApi:
 
         _LOGGER.debug(f'Trackables updated.')
 
-    
+    async def update_settings(self, settings: GeocachingSettings):
+        """Update the Geocaching settings"""
+        self._settings = settings
+        
     async def close(self) -> None:
         """Close open client session."""
         if self._session and self._close_session:
