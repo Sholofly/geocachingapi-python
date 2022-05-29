@@ -176,7 +176,7 @@ class GeocachingApi:
                 "type"
             ])
             trackable_parameters = ",".join(self._settings.trackable_codes)
-            data = await self._request("GET", f"/trackables?referenceCodes={trackable_parameters}&fields={fields}")
+            data = await self._request("GET", f"/trackables?referenceCodes={trackable_parameters}&fields={fields}&expand=trackablelogs:1")
         self._status.update_trackables_from_dict(data)
         if len(self._status.trackables) > 0:
             for trackable in self._status.trackables.values():

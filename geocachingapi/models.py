@@ -80,6 +80,27 @@ class GeocachingTrackableJourney:
         self.logged_date = try_get_from_dict(data, "loggedDate", self.logged_date)
 
 @dataclass
+class GeocachingTrackableLog:
+    reference_code: Optional[str] = None
+    owner: GeocachingUser = None
+    text: Optional[str] = None
+    log_type: Optional[str] = None
+    logged_date: Optional[datetime] = None
+
+    def __init__(self, *, data: Dict[str, Any]) -> GeocachingTrackableLog:
+        self.reference_code = try_get_from_dict(data, 'referenceCode',self.reference_code)
+        if self.owner is None:
+            self.owner = GeocachingUser()
+        if 'owner' in data:
+            self.owner.update_from_dict(data['owner'])
+        else:
+            self.owner = None
+        self.log_type = try_get_from_dict(data['trackableLogType'], 'name',self.log_type)
+        self.logged_date = try_get_from_dict(data, 'loggedDate',self.logged_date)
+        self.text = try_get_from_dict(data, 'text',self.text)
+
+
+@dataclass
 class GeocachingTrackable:
     """Class to hold the Geocaching trackable information"""
     reference_code: Optional[str] = None
@@ -92,7 +113,9 @@ class GeocachingTrackable:
     current_geocache_name: Optional[str] = None
     latest_journey: GeocachingTrackableJourney = None
     is_missing: bool = False,
-    trackable_type: str = None
+    trackable_type: str = None,
+    latest_log: GeocachingTrackableLog = None
+
     
     def update_from_dict(self, data: Dict[str, Any]) -> None:
         """Update trackable from the API"""
@@ -112,7 +135,9 @@ class GeocachingTrackable:
         self.current_geocache_name = try_get_from_dict(data, "currentGeocacheName", self.current_geocache_name)
         self.is_missing = try_get_from_dict(data, "isMissing", self.is_missing)
         self.trackable_type = try_get_from_dict(data, "type", self.trackable_type)
-
+        if "trackableLogs" in data and len(data["trackableLogs"]) > 0:
+            self.latest_log = GeocachingTrackableLog(data=data["trackableLogs"][0])
+            
 
 class GeocachingStatus:
     """Class to hold all account status information"""
