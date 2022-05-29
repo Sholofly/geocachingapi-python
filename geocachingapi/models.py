@@ -1,4 +1,5 @@
 from __future__ import annotations
+from array import array
 from enum import Enum
 from typing import Any, Dict, Optional, TypedDict
 
@@ -20,12 +21,15 @@ class GeocachingApiEnvironment(Enum):
 
 class GeocachingSettings:
     """Class to hold the Geocaching Api settings"""
-    fetch_trackables: bool
+    trackable_codes: array(str)
     environment: GeocachingApiEnvironment
 
-    def __init__(self, fetch_trackables:bool = False, environment:GeocachingApiEnvironment = GeocachingApiEnvironment.Production ) -> None:
+    def __init__(self, environment:GeocachingApiEnvironment = GeocachingApiEnvironment.Production, trackables:array(str) = [] ) -> None:
         """Initialize settings"""
-        self.fetch_trackables = fetch_trackables
+        self.trackable_codes = trackables
+    
+    def set_trackables(self, trackables:array(str)):
+        self.trackable_codes = trackables
 
 @dataclass
 class GeocachingUser:
@@ -37,6 +41,7 @@ class GeocachingUser:
     favorite_points: Optional[int] = None
     souvenir_count: Optional[int] = None
     awarded_favorite_points: Optional[int] = None
+    membership_level_id: Optional[int] = None
 
     def update_from_dict(self, data: Dict[str, Any]) -> None:
         """Update user from the API result"""
@@ -47,6 +52,7 @@ class GeocachingUser:
         self.favorite_points = try_get_from_dict(data, "favoritePoints", self.favorite_points)
         self.souvenir_count = try_get_from_dict(data, "souvenirCount", self.souvenir_count)
         self.awarded_favorite_points = try_get_from_dict(data, "awardedFavoritePoints", self.awarded_favorite_points)
+        self.membership_level_id = try_get_from_dict(data, "membershipLevelId", self.membership_level_id)
 
 @dataclass
 class GeocachingCoordinate:
@@ -74,6 +80,27 @@ class GeocachingTrackableJourney:
         self.logged_date = try_get_from_dict(data, "loggedDate", self.logged_date)
 
 @dataclass
+class GeocachingTrackableLog:
+    reference_code: Optional[str] = None
+    owner: GeocachingUser = None
+    text: Optional[str] = None
+    log_type: Optional[str] = None
+    logged_date: Optional[datetime] = None
+
+    def __init__(self, *, data: Dict[str, Any]) -> GeocachingTrackableLog:
+        self.reference_code = try_get_from_dict(data, 'referenceCode',self.reference_code)
+        if self.owner is None:
+            self.owner = GeocachingUser()
+        if 'owner' in data:
+            self.owner.update_from_dict(data['owner'])
+        else:
+            self.owner = None
+        self.log_type = try_get_from_dict(data['trackableLogType'], 'name',self.log_type)
+        self.logged_date = try_get_from_dict(data, 'loggedDate',self.logged_date)
+        self.text = try_get_from_dict(data, 'text',self.text)
+
+
+@dataclass
 class GeocachingTrackable:
     """Class to hold the Geocaching trackable information"""
     reference_code: Optional[str] = None
@@ -85,7 +112,10 @@ class GeocachingTrackable:
     current_geocache_code: Optional[str] = None
     current_geocache_name: Optional[str] = None
     latest_journey: GeocachingTrackableJourney = None
-    is_missing: bool = False
+    is_missing: bool = False,
+    trackable_type: str = None,
+    latest_log: GeocachingTrackableLog = None
+
     
     def update_from_dict(self, data: Dict[str, Any]) -> None:
         """Update trackable from the API"""
@@ -104,6 +134,10 @@ class GeocachingTrackable:
         self.current_geocache_code = try_get_from_dict(data, "currectGeocacheCode", self.current_geocache_code)
         self.current_geocache_name = try_get_from_dict(data, "currentGeocacheName", self.current_geocache_name)
         self.is_missing = try_get_from_dict(data, "isMissing", self.is_missing)
+        self.trackable_type = try_get_from_dict(data, "type", self.trackable_type)
+        if "trackableLogs" in data and len(data["trackableLogs"]) > 0:
+            self.latest_log = GeocachingTrackableLog(data=data["trackableLogs"][0])
+            
 
 class GeocachingStatus:
     """Class to hold all account status information"""
