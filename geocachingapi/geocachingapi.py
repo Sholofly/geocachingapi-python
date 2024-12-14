@@ -11,16 +11,21 @@ import backoff
 from yarl import URL
 from aiohttp import ClientResponse, ClientSession, ClientError
 
-from typing import Any, Awaitable, Callable, Dict, List, Optional
-from .const import ENVIRONMENT_SETTINGS
+from typing import Any, Awaitable, Callable, Dict, Optional
+from .const import ENVIRONMENT_SETTINGS, CACHE_FIELDS_PARAMETER
+from .limits import MAXIMUM_NEARBY_CACHES
 from .exceptions import (
     GeocachingApiConnectionError,
     GeocachingApiConnectionTimeoutError,
     GeocachingApiError,
     GeocachingApiRateLimitError,
+    GeocachingInvalidSettingsError,
 )
+from .utils import clamp
 
 from .models import (
+    GeocachingCache,
+    GeocachingCoordinate,
     GeocachingStatus,
     GeocachingSettings,
     GeocachingApiEnvironment,
@@ -50,7 +55,7 @@ class GeocachingApi:
         """Initialize connection with the Geocaching API."""
         self._environment_settings = ENVIRONMENT_SETTINGS[environment]
         self._status = GeocachingStatus()
-        self._settings = settings or GeocachingSettings(False)
+        self._settings = settings or GeocachingSettings()
         self._session = session
         self.request_timeout = request_timeout
         self.token = token
@@ -90,7 +95,7 @@ class GeocachingApi:
             self._close_session = True
 
         try:
-            with async_timeout.timeout(self.request_timeout):
+            async with async_timeout.timeout(self.request_timeout):
                 response =  await self._session.request(
                     method,
                     f"{url}",
@@ -135,14 +140,35 @@ class GeocachingApi:
         _LOGGER.debug(f'Response:')
         _LOGGER.debug(f'{str(result)}')
         return result
+    
+    def _tracked_trackables_enabled(self) -> bool:
+        return len(self._settings.tracked_trackable_codes) > 0
+    
+    def _tracked_caches_enabled(self) -> bool:
+        return len(self._settings.tracked_cache_codes) > 0
+    
+    def _nearby_caches_enabled(self) -> bool:
+        return self._settings.nearby_caches_setting is not None and self._settings.nearby_caches_setting.max_count > 0
 
     async def update(self) -> GeocachingStatus:
-        await self._update_user(None)
-        if len(self._settings.trackable_codes) > 0:
+        # First, update the user
+        await self._update_user()
+        
+        # If we are tracking trackables, update them
+        if self._tracked_trackables_enabled():
             await self._update_trackables()
+        
+        # If we are tracking caches, update them
+        if self._tracked_caches_enabled():
+            await self._update_tracked_caches()
+        
+        # If the nearby caches setting is enabled, update them
+        if self._nearby_caches_enabled():
+            await self._update_nearby_caches()
+
         _LOGGER.info(f'Status updated.')
         return self._status
-        
+
     async def _update_user(self, data: Dict[str, Any] = None) -> None:
         assert self._status
         if data is None:
@@ -160,6 +186,15 @@ class GeocachingApi:
         self._status.update_user_from_dict(data)
         _LOGGER.debug(f'User updated.')
     
+    async def _update_tracked_caches(self, data: Dict[str, Any] = None) -> None:
+        assert self._status
+        if data is None:
+            cache_codes = ",".join(self._settings.tracked_cache_codes)
+            data = await self._request("GET", f"/geocaches?referenceCodes={cache_codes}&fields={CACHE_FIELDS_PARAMETER}&lite=true")
+
+        self._status.update_caches(data)
+        _LOGGER.debug(f'Tracked caches updated.')
+
     async def _update_trackables(self, data: Dict[str, Any] = None) -> None:
         assert self._status
         if data is None:
@@ -167,6 +202,9 @@ class GeocachingApi:
                 "referenceCode",
                 "name",
                 "holder",
+                "owner",
+                "url",
+                "releasedDate",
                 "trackingNumber",
                 "kilometersTraveled",
                 "milesTraveled",
@@ -175,18 +213,116 @@ class GeocachingApi:
                 "isMissing",
                 "type"
             ])
-            trackable_parameters = ",".join(self._settings.trackable_codes)
-            data = await self._request("GET", f"/trackables?referenceCodes={trackable_parameters}&fields={fields}&expand=trackablelogs:1")
+            trackable_parameters = ",".join(self._settings.tracked_trackable_codes)
+            max_count_param: int = clamp(len(self._settings.tracked_trackable_codes), 0, 50) # Take range is 0-50 in API
+            data = await self._request("GET", f"/trackables?referenceCodes={trackable_parameters}&fields={fields}&take={max_count_param}&expand=trackablelogs:1")
         self._status.update_trackables_from_dict(data)
+        
+        # Update trackable journeys
         if len(self._status.trackables) > 0:
             for trackable in self._status.trackables.values():
-                latest_journey_data = await self._request("GET",f"/trackables/{trackable.reference_code}/journeys?sort=loggedDate-&take=1")
-                if len(latest_journey_data) == 1:
-                    trackable.latest_journey = GeocachingTrackableJourney(data=latest_journey_data[0])
-                else:
-                    trackable.latest_journey = None
+                fields = ",".join([
+                    "referenceCode",
+                    "geocacheName",
+                    "loggedDate",
+                    "coordinates",
+                    "url",
+                    "owner"
+                ])
+                max_log_count: int = clamp(10, 0, 50) # Take range is 0-50 in API
+                
+                # Only fetch logs related to movement
+                # Reference: https://api.groundspeak.com/documentation#trackable-log-types
+                logTypes: list[int] = ",".join([
+                    "14", # Dropped Off
+                    "15" # Transfer
+                ])
+                trackable_journey_data = await self._request("GET",f"/trackables/{trackable.reference_code}/trackablelogs?fields={fields}&logTypes={logTypes}&take={max_log_count}")
+
+                # Note that if we are not fetching all journeys, the distance for the first journey in our data will be incorrect, since it does not know there was a previous journey
+                if trackable_journey_data:
+                    # Create a list of GeocachingTrackableJourney instances
+                    journeys = await GeocachingTrackableJourney.from_list(trackable_journey_data)
+                    
+                    # Calculate distances between journeys
+                    # The journeys are sorted in order, so reverse it to iterate backwards
+                    j_iter = iter(reversed(journeys))
+
+                    # Since we are iterating backwards, next is actually the previous journey.
+                    # However, the previous journey is set in the loop, so we assume it is missing for now
+                    curr_journey: GeocachingTrackableJourney | None = next(j_iter)
+                    prev_journey: GeocachingTrackableJourney | None = None
+                    while True:
+                        # Ensure that the current journey is valid
+                        if curr_journey is None:
+                            break
+                        prev_journey = next(j_iter, None)
+                        # If we have reached the first journey, its distance should be 0 (it did not travel from anywhere)
+                        if prev_journey is None:
+                            curr_journey.distance_km = 0
+                            break
+                        
+                        # Calculate the distance from the previous to the current location, as that is the distance the current journey travelled
+                        curr_journey.distance_km = GeocachingCoordinate.get_distance_km(prev_journey.coordinates, curr_journey.coordinates)
+                        curr_journey = prev_journey
+
+                    trackable.journeys = journeys
+
+                    # Set the trackable coordinates to that of the latest log
+                    trackable.coordinates = journeys[-1].coordinates
 
         _LOGGER.debug(f'Trackables updated.')
+
+    async def _update_nearby_caches(self, data: Dict[str, Any] = None) -> None:
+        """Update the nearby caches"""
+        assert self._status
+        if self._settings.nearby_caches_setting is None:
+            _LOGGER.warning("Cannot update nearby caches, setting has not been configured.")
+            return
+        
+        if data is None:
+            self._status.nearby_caches = await self.get_nearby_caches(
+                self._settings.nearby_caches_setting.location,
+                self._settings.nearby_caches_setting.radius_km,
+                self._settings.nearby_caches_setting.max_count
+            )
+        else:
+            self._status.update_nearby_caches_from_dict(data)
+
+        _LOGGER.debug(f'Nearby caches updated.')
+    
+    async def get_nearby_caches(self, coordinates: GeocachingCoordinate, radius_km: float, max_count: int = 10) -> list[GeocachingCache]:
+        """Get caches nearby the provided coordinates, within the provided radius"""
+        radiusM: int = round(radius_km * 1000) # Convert the radius from km to m
+        max_count_param: int = clamp(max_count, 0, MAXIMUM_NEARBY_CACHES) # Take range is 0-100 in API
+
+        URL = f"/geocaches/search?q=location:[{coordinates.latitude},{coordinates.longitude}]+radius:{radiusM}m&fields={CACHE_FIELDS_PARAMETER}&take={max_count_param}&sort=distance+&lite=true"
+        # The + sign is not encoded correctly, so we encode it manually
+        data = await self._request("GET", URL.replace("+", "%2B"))
+
+        return GeocachingStatus.parse_caches(data)
+    
+    async def _verify_codes(self, endpoint: str, code_type: str, reference_codes: set[str], extra_params: dict[str, str] = {}) -> None:
+        """Verifies a set of reference codes to ensure they are valid, and returns a set of all invalid codes"""
+        ref_codes_param: str = ",".join(reference_codes)
+        additional_params: str = "&".join([f'{name}={val}' for name, val in extra_params.items()])
+        additional_params = "&" + additional_params if len(additional_params) > 0 else ""
+        
+        data = await self._request("GET", f"/{endpoint}?referenceCodes={ref_codes_param}&fields=referenceCode{additional_params}")
+        invalid_codes: set[str] = reference_codes.difference([d["referenceCode"] for d in data])
+        
+        if len(invalid_codes) > 0:
+            raise GeocachingInvalidSettingsError(code_type, invalid_codes)
+    
+    async def verify_settings(self) -> None:
+        """Verifies the settings, checking for invalid reference codes"""
+        # Verify the tracked trackable reference codes
+        if self._tracked_trackables_enabled():
+            await self._verify_codes("trackables", "trackable", self._settings.tracked_trackable_codes)
+        
+        # Verify the tracked cache reference codes
+        if self._tracked_caches_enabled():
+            await self._verify_codes("geocaches", "geocache", self._settings.tracked_cache_codes, {"lite": "true"})
 
     async def update_settings(self, settings: GeocachingSettings):
         """Update the Geocaching settings"""

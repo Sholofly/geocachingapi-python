@@ -23,7 +23,7 @@ setuptools.setup(
     url="https://github.com/Sholofly/geocachingapi-python",
     packages=setuptools.find_packages(include=["geocachingapi"]),
     license="MIT license",
-    install_requires=["aiohttp>=3.7.4,<4", "backoff>=1.9.0", "yarl"],
+    install_requires=["aiohttp>=3.7.4,<4", "backoff>=1.9.0", "yarl", "reverse_geocode==1.6.5"],
     keywords=["geocaching", "api"],
     classifiers=[
         "Development Status :: 3 - Alpha",

@@ -23,3 +23,16 @@ MEMBERSHIP_LEVELS = {
     2: "Charter",
     3: "Premium"
 }
+
+# Required parameters for fetching caches in order to generate complete GeocachingCache objects
+CACHE_FIELDS_PARAMETER: str = ",".join([
+                "referenceCode",
+                "name",
+                "owner",
+                "postedCoordinates",
+                "url",
+                "favoritePoints",
+                "userData",
+                "placedDate",
+                "location"
+            ])
