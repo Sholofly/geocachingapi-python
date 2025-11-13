@@ -5,7 +5,6 @@ import asyncio
 import json
 import logging
 import socket
-import async_timeout
 import backoff
 
 from yarl import URL
@@ -95,7 +94,7 @@ class GeocachingApi:
             self._close_session = True
 
         try:
-            async with async_timeout.timeout(self.request_timeout):
+            async with asyncio.timeout(self.request_timeout):
                 response =  await self._session.request(
                     method,
                     f"{url}",
